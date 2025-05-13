@@ -83,106 +83,108 @@ pipeline {
         nodejs 'node16'
     }
     environment {
-        SCANNER_HOME=tool 'sonar-scanner'
+        SCANNER_HOME = tool 'sonar-scanner'
     }
     stages {
-        stage ("clean workspace") {
+        stage("Clean Workspace") {
             steps {
                 cleanWs()
             }
         }
-        stage ("Git checkout") {
+        stage("Git Checkout") {
             steps {
-                git branch: 'main', url: 'https://github.com/yeshwanthlm/starbucks.git'
+                git branch: 'main', url: 'https://github.com/Hasham625/Devops_project.git'
             }
         }
-        stage("Sonarqube Analysis "){
-            steps{
+        stage("SonarQube Analysis") {
+            steps {
                 withSonarQubeEnv('sonar-server') {
-                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=starbucks \
-                    -Dsonar.projectKey=starbucks '''
+                    sh '''$SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectName=Devops_project \
+                        -Dsonar.projectKey=Devops_project'''
                 }
             }
         }
-        stage("quality gate"){
-           steps {
+        stage("Quality Gate") {
+            steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token' 
+                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
                 }
-            } 
+            }
         }
         stage("Install NPM Dependencies") {
             steps {
                 sh "npm install"
             }
         }
-        stage('OWASP FS SCAN') {
+        stage("OWASP Dependency Check") {
             steps {
                 dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
-        stage ("Trivy File Scan") {
+        stage("Trivy File Scan") {
             steps {
                 sh "trivy fs . > trivy.txt"
             }
         }
-        stage ("Build Docker Image") {
+        stage("Build Docker Image") {
             steps {
-                sh "docker build -t starbucks ."
+                sh "docker build -t devops_project ."
             }
         }
-        stage ("Tag & Push to DockerHub") {
+        stage("Tag & Push to DockerHub") {
             steps {
                 script {
                     withDockerRegistry(credentialsId: 'docker') {
-                        sh "docker tag starbucks amonkincloud/starbucks:latest "
-                        sh "docker push amonkincloud/starbucks:latest "
+                        sh "docker tag devops_project hasham876/devops_project:latest"
+                        sh "docker push hasham876/devops_project:latest"
                     }
                 }
             }
         }
-        stage('Docker Scout Image') {
+        stage("Docker Scout Scan") {
             steps {
-                script{
-                   withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){
-                       sh 'docker-scout quickview amonkincloud/starbucks:latest'
-                       sh 'docker-scout cves amonkincloud/starbucks:latest'
-                       sh 'docker-scout recommendations amonkincloud/starbucks:latest'
-                   }
+                script {
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                        sh "docker-scout quickview hasham876/devops_project:latest"
+                        sh "docker-scout cves hasham876/devops_project:latest"
+                        sh "docker-scout recommendations hasham876/devops_project:latest"
+                    }
                 }
             }
         }
-        stage ("Deploy to Conatiner") {
+        stage("Deploy to Container") {
             steps {
-                sh 'docker run -d --name starbucks -p 3000:3000 amonkincloud/starbucks:latest'
+                sh "docker run -d --name devops_project -p 3000:3000 hasham876/devops_project:latest"
             }
         }
     }
     post {
-    always {
-        emailext attachLog: true,
-            subject: "'${currentBuild.result}'",
-            body: """
-                <html>
-                <body>
-                    <div style="background-color: #FFA07A; padding: 10px; margin-bottom: 10px;">
-                        <p style="color: white; font-weight: bold;">Project: ${env.JOB_NAME}</p>
-                    </div>
-                    <div style="background-color: #90EE90; padding: 10px; margin-bottom: 10px;">
-                        <p style="color: white; font-weight: bold;">Build Number: ${env.BUILD_NUMBER}</p>
-                    </div>
-                    <div style="background-color: #87CEEB; padding: 10px; margin-bottom: 10px;">
-                        <p style="color: white; font-weight: bold;">URL: ${env.BUILD_URL}</p>
-                    </div>
-                </body>
-                </html>
-            """,
-            to: 'provide_your_Email_id_here',
-            mimeType: 'text/html',
-            attachmentsPattern: 'trivy.txt'
+        always {
+            emailext attachLog: true,
+                subject: "'${currentBuild.result}'",
+                body: """
+                    <html>
+                    <body>
+                        <div style="background-color: #FFA07A; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: white; font-weight: bold;">Project: ${env.JOB_NAME}</p>
+                        </div>
+                        <div style="background-color: #90EE90; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: white; font-weight: bold;">Build Number: ${env.BUILD_NUMBER}</p>
+                        </div>
+                        <div style="background-color: #87CEEB; padding: 10px; margin-bottom: 10px;">
+                            <p style="color: white; font-weight: bold;">URL: ${env.BUILD_URL}</p>
+                        </div>
+                    </body>
+                    </html>
+                """,
+                to: 'provide_your_Email_id_here',
+                mimeType: 'text/html',
+                attachmentsPattern: 'trivy.txt'
         }
     }
 }
+
 
 ```
